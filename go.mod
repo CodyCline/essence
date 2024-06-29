@@ -1,4 +1,4 @@
-module github.com/codycline/essence
+module github.com/codycline/essence/latest
 
 go 1.22.2
 
