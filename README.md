@@ -1,8 +1,8 @@
 # 🌱 Essence
 <p float="left">
-  <img src="./static/essence.jpeg" width="225" height="300" />
-  <img src="./static/miasma.jpeg" width="225" height="300" />
-  <img src="./static/smoke.jpeg" width="225" height="300" />
+  <img src="./static/essence.jpeg" width="225" height="250" />
+  <img src="./static/miasma.jpeg" width="225" height="250" />
+  <img src="./static/smoke.jpeg" width="225" height="250" />
 </p>
 
 Essence is a CLI tool that returns a list of unique domains or subdomains from an input list of strings, URLs or emails.
