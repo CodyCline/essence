@@ -36,13 +36,14 @@ func main() {
 
 	subdomains := flag.Bool("subdomains", false, "include subdomains")
 	formatJSON := flag.Bool("json", false, "output results as json")
-	version := flag.Bool("version", false, "output dsquash version")
+	version := flag.Bool("version", false, "show version of essence")
 	file := flag.String("output", "", "output results to a file")
 	flag.Parse()
 	if *version {
-		log.Infof("current version: %s", Version)
+		fmt.Println(version)
 		log.Exit(0)
 	}
+
 	if usingSTDInput() {
 		lines := detectSTDInput()
 		inputs = append(inputs, lines...)
