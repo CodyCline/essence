@@ -1,12 +1,17 @@
 # 🌱 Essence
+<p float="left">
+  <img src="./static/essence.jpeg" width="225" height="300" />
+  <img src="./static/miasma.jpeg" width="225" height="300" />
+  <img src="./static/smoke.jpeg" width="225" height="300" />
+</p>
 
-Essence is a CLI tool that returns a list of unique domains or subdomains from a list of strings, URLs or emails.
+Essence is a CLI tool that returns a list of unique domains or subdomains from an input list of strings, URLs or emails.
 
 
 
-Isn't this the same as anew ? 
+Isn't this the same as [anew](https://github.com/tomnomnom/anew) ? 
 
-Yes sort of.
+Yes sort of. Anew is a fantastic tool keeping a list of duplicate-free entries. Essence on the other hand, is an extractive tool meaning it attempts to parse out any possible domain from a list of URIs, email addresses, links, etc. 
 
 
 
