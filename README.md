@@ -14,6 +14,15 @@ Isn't this the same as [anew](https://github.com/tomnomnom/anew) ?
 Yes sort of. Anew is a fantastic tool keeping a list of duplicate-free entries. Essence on the other hand, is an extractive tool meaning it attempts to parse out any possible domain from a list of URIs, email addresses, links, etc. 
 
 
+## Installation
+
+### Go
+go install github.com/codycline/interrogator/cmd/essence@latest
+
+sudo mv go/bin/interrogate /usr/local/bin
+
+### From source
+git clone https://github.com/codycline/essence cd interrogator `go build cmd/interrogate
 
 ## Examples 
 1. Get unique domains from stdin: `cat urls.txt | essence`
