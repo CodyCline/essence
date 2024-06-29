@@ -34,13 +34,13 @@ type Results struct {
 func main() {
 	var inputs []string
 
-	subdomains := flag.Bool("subdomains", false, "include subdomains")
-	formatJSON := flag.Bool("json", false, "output results as json")
+	subdomains := flag.Bool("subdomains", false, "output subdomains instead")
+	formatJSON := flag.Bool("json", false, "output as json")
 	version := flag.Bool("version", false, "show version of essence")
 	file := flag.String("output", "", "output results to a file")
 	flag.Parse()
 	if *version {
-		fmt.Println(version)
+		fmt.Println(Version)
 		log.Exit(0)
 	}
 
