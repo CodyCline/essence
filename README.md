@@ -17,12 +17,16 @@ Yes sort of. Anew is a fantastic tool keeping a list of duplicate-free entries. 
 ## Installation
 
 ### Go
-go install github.com/codycline/interrogator/cmd/essence@latest
+`go install -v github.com/CodyCline/essence/cmd/essence@latest`
 
-sudo mv go/bin/interrogate /usr/local/bin
+`sudo mv go/bin/essence /usr/local/bin`
 
 ### From source
-git clone https://github.com/codycline/essence cd interrogator `go build cmd/interrogate
+`git clone https://github.com/codycline/essence` 
+
+`cd essence`
+
+`go build cmd/essence`
 
 ## Examples 
 1. Get unique domains from stdin: `cat urls.txt | essence`
