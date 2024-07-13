@@ -13,6 +13,7 @@ require (
 )
 
 require (
+	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/weppos/publicsuffix-go v0.40.0
 	golang.org/x/net v0.26.0 // indirect

@@ -2,13 +2,16 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"regexp"
 	"strings"
 
+	"github.com/logrusorgru/aurora"
 	flag "github.com/lynxsecurity/pflag"
 
 	emailparser "github.com/mcnijman/go-emailaddress"
@@ -18,9 +21,25 @@ import (
 
 var Version string
 
+const banner = `                                          
+    ██████████    
+      ██  ██      
+      ██  ██      
+      ██  ██      
+      ██  ██      
+      ██  ██      
+    ██  ░░  ██    
+  ██          ██  
+██        ░░    ██
+██  ░░          ██
+██░░░░░░░░░░░░░░██
+██░░░░░░░░░░░░░░██
+  ██░░░░░░░░░░██  
+    ██████████    `
+
 type Result struct {
 	//Number of times seen in the list
-	Seen int      `json:"seen"`
+	Seen int      `json:"times_seen"`
 	From []string `json:"from"`
 	//FQDN
 	Domain string `json:"domain"`
@@ -32,10 +51,9 @@ type Results struct {
 }
 
 func main() {
-	var inputs []string
-
 	subdomains := flag.Bool("subdomains", false, "output subdomains instead")
 	formatJSON := flag.Bool("json", false, "output as json")
+	silent := flag.Bool("silent", false, "show no output")
 	version := flag.Bool("version", false, "show version of essence")
 	file := flag.String("output", "", "output results to a file")
 	flag.Parse()
@@ -44,23 +62,32 @@ func main() {
 		log.Exit(0)
 	}
 
-	if usingSTDInput() {
-		lines := detectSTDInput()
-		inputs = append(inputs, lines...)
+	if *silent {
+		log.SetLevel(log.FatalLevel)
 	}
 
-	if len(os.Args) > 1 {
-		args := detectArgInput(os.Args[1])
-		inputs = append(inputs, args...)
+	//Use this as an interface
+	input, err := detectInput()
+	if err != nil {
+		log.Error(err)
+		log.Fatal("an error occured while detecting input")
 	}
 
-	if len(inputs) == 0 {
-		log.Fatalf("no input detected exiting")
+	//Ensure file cleanup
+	if file, ok := input.(*os.File); ok {
+		defer file.Close()
 	}
+
+	if !*silent {
+		fmt.Println(aurora.Red(fmt.Sprintf("%s\n", banner)))
+		log.Infof("current essence version %s", Version)
+	}
+
 	results := Results{
 		Data:              map[string]Result{},
 		IncludeSubdomains: *subdomains,
 	}
+
 	output := os.Stdout
 	if *file != "" {
 		var err error
@@ -71,131 +98,87 @@ func main() {
 		defer output.Close()
 	}
 
-	for _, line := range inputs {
-		results.parse(line)
-	}
-
-	for _, result := range results.Data {
-		if *formatJSON {
-			encoder := json.NewEncoder(output)
-			encoder.Encode(&result)
-		} else {
-			output.WriteString(fmt.Sprintf("%s\n", result.Domain))
-		}
-	}
-}
-
-func detectArgInput(arg string) []string {
-	var inputs []string
-
-	if _, err := os.Stat(arg); err == nil {
-		file, err := os.Open(arg)
-		if err != nil {
-			return inputs
-		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			inputs = append(inputs, scanner.Text())
-		}
-
-		if err := scanner.Err(); err != nil {
-			return inputs
-		}
-
-		return inputs
-	}
-
-	if strings.Contains(arg, ",") {
-		args := strings.Split(arg, ",")
-		return append(inputs, args...)
-	}
-
-	if arg != "" {
-		return append(inputs, arg)
-	}
-
-	return inputs
-}
-
-func detectSTDInput() []string {
-	var lines []string
-	scanner := bufio.NewScanner(os.Stdin)
+	// if usingSTDInput() {
+	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+		line := scanner.Text()
+		parsed := results.parse(strings.TrimSpace(line))
+		if parsed != "" {
+			result, err := results.upsert(parsed)
+			if err != nil {
+				continue
+			}
+			if result != nil {
+
+				if result.Seen == 1 && !*formatJSON {
+					output.WriteString(fmt.Sprintf("%s\n", result.Domain))
+				}
+			}
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return lines
+		log.Error(err)
 	}
-	return lines
+	if *formatJSON {
+		encoder := json.NewEncoder(output)
+		for _, result := range results.Data {
+			encoder.Encode(&result)
+		}
+	}
 }
 
-func usingSTDInput() bool {
-	stat, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return (stat.Mode() & os.ModeCharDevice) == 0
-}
+func (r *Results) parse(line string) string {
 
-func (r *Results) parse(line string) error {
 	switch {
-	//Likely a dns server such as ns1.example.com.
-	case strings.HasSuffix(line, "."):
-		r.upsert(strings.TrimSuffix(line, "."))
-		return nil
 
 	//Matches a protocol regex like https:// ftp://
 	case regexp.MustCompile(`^\w+:\/\/`).MatchString(line):
 		uri, err := url.Parse(line)
 		if err != nil {
-			return err
+			return ""
 		}
-		r.upsert(uri.Hostname())
-		return nil
+		return uri.Hostname()
 	case strings.Contains(line, "mailto:"):
 		email, err := emailparser.Parse(strings.TrimPrefix(line, "mailto:"))
 		if err != nil {
-			return err
+			return ""
 		}
 		if email != nil {
-			r.upsert(email.Domain)
+			return email.Domain
 		}
-		return nil
+		return ""
+	// Likely a dns server such as ns1.example.com.
+	case strings.HasSuffix(line, "."):
+		return strings.TrimSuffix(line, ".")
 	case strings.Contains(line, "@"):
 		//parse out email address
 		email, err := emailparser.Parse(line)
 		if err != nil {
-			return err
+			return ""
 		}
 		if email != nil {
-			r.upsert(email.Domain)
+			return email.Domain
 		}
-		return nil
-
+		return ""
 	default:
-		r.upsert(line)
+		return line
 	}
-	return nil
 }
 
-func (r *Results) upsert(input string) error {
-
+func (r *Results) upsert(input string) (*Result, error) {
 	var key string
 
 	if r.IncludeSubdomains {
 		parsed, err := publicsuffix.Parse(input)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		key = parsed.String()
-		// fmt.Println(key)
 	} else {
 		domain, err := publicsuffix.Domain(input)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		key = domain
 	}
@@ -205,12 +188,54 @@ func (r *Results) upsert(input string) error {
 		domain.From = append(domain.From, input)
 		domain.Seen += 1
 		(r.Data)[key] = domain
+		return &domain, nil
 	} else {
-		(r.Data)[key] = Result{
+		newResult := Result{
 			Domain: key,
 			From:   []string{input},
 			Seen:   1,
 		}
+		(r.Data)[key] = newResult
+		return &newResult, nil
 	}
-	return nil
+}
+
+func detectInput() (io.ReadWriter, error) {
+	input := bytes.NewBufferString("")
+	if usingSTDInput() {
+		return os.Stdin, nil
+	}
+	if len(os.Args) > 1 {
+		arg := os.Args[1]
+		if _, err := os.Stat(arg); err == nil {
+			file, err := os.Open(arg)
+			if err != nil {
+				return nil, err
+			}
+			return file, nil
+		}
+
+		if strings.Contains(arg, ",") {
+			args := strings.Split(arg, ",")
+			for _, arg := range args {
+				input.Write([]byte(fmt.Sprintf("%s\n", arg)))
+				fmt.Println(input)
+			}
+			return input, nil
+		}
+
+		if arg != "" {
+			input.Write([]byte(fmt.Sprintf("%s\n", arg)))
+		}
+	}
+
+	return input, nil
+}
+
+func usingSTDInput() bool {
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (stat.Mode() & os.ModeCharDevice) == 0
 }
