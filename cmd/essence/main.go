@@ -56,6 +56,8 @@ func main() {
 	silent := flag.Bool("silent", false, "show no output")
 	version := flag.Bool("version", false, "show version of essence")
 	file := flag.String("output", "", "output results to a file")
+	help := flag.Bool("help", false, "show help")
+
 	flag.Parse()
 	if *version {
 		fmt.Println(Version)
@@ -78,9 +80,10 @@ func main() {
 		defer file.Close()
 	}
 
-	if !*silent {
+	if *help {
 		fmt.Println(aurora.Red(fmt.Sprintf("%s\n", banner)))
 		log.Infof("current essence version %s", Version)
+		flag.Usage()
 	}
 
 	results := Results{
